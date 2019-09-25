@@ -1,17 +1,17 @@
-!Reconstruction from primitive variables implementation
+!Piecewise-polynomial ENO Reconstruction from primitive variables implementation
 !(following algorithm outlines in Chi Wang Shu's notes)
 
-program prim_reconstruction
+program prim_reconstruction_eno
 implicit none
 
 
-integer,parameter::nx=10 !number of cells
+integer,parameter::nx=50 !number of cells
 integer,parameter::k=3 !stencil size
 !integer,parameter::r=2 !left-shift, i.e. no of cells to left of central cell
 integer::r,is
 real::xmin,xmax,dx
 
-real::cr(nx,k) !co-efficient array
+real::cr(nx,k,2) !co-efficient array, cr(:,:,1)=value of co-efficient,cr(:,:,2)=value of r
 
 integer::i,j
 !real::vbar(1:nx)
@@ -51,7 +51,8 @@ do i=1,nx
   !Start with two point stencil
   j=1
   is=i
-  cr(i,1)=Vdiff(is,is+j) !lowest-order stencil
+  cr(i,1,1)=Vdiff(is,is+j) !lowest-order stencil
+  cr(i,1,2)=i-is !r=0 for lowest-order stencil
   do j=2,k
     !apply ENO condition to the two (j+1)-point 
     !stencils formed by adding a point on either 
@@ -59,16 +60,15 @@ do i=1,nx
     if(abs(Vdiff(is-1,is+j-1))<abs(Vdiff(is,is+j)))then
       is=is-1
     end if
-    cr(i,j)=Vdiff(is,is+j) !ENO interpolation coefficients
+    cr(i,j,1)=Vdiff(is,is+j) !ENO interpolation coefficients
+    cr(i,1,2)=i-is
   end do 
 end do
 
-print*,'i   cr(1)   cr(2)   cr(3)'
-do i=1,nx
- print*,i,cr(i,1),cr(i,2),cr(i,3)
-end do
-
-
+!print*,'i   cr(1)   cr(2)   cr(3)'
+!do i=1,nx
+! print*,i,cr(i,1),cr(i,2),cr(i,3)
+!end do
 
 print*,'Done.'
 
@@ -88,8 +88,9 @@ else if(k==i+1)then
 end if
 
 end
-function v(x) result(vx)
 
+!Original function
+function v(x) result(vx)
 real,intent(in)::x
 real::vx
 
@@ -105,8 +106,35 @@ end if
 !sinusoid
 !vx=sin(20.*x)
 
-
 end function v 
+
+!Reconstructed function
+function p(x) result(px)
+
+real,intent(in)::x
+real::px,temp1,temp2
+integer::i,j,m,l
+
+i=floor(x/dx)+1
+
+px=0.
+do j=1,k
+  temp2=0.
+  do m=0,j-1
+   temp1=1.
+   do l=0,j-1
+     if(l .ne. m)then 
+       temp1=temp1*(x-(xmin+(i-cr(i,j,2)+l)*dx))
+     end if
+   end do
+   temp2=temp2+temp1
+  end do
+  px=px+cr(i,j,1)*temp2
+end do
+
+
+end function p
+
 
 
 function vbar(m) result(vbarx)
@@ -118,4 +146,4 @@ vbarx=0.5*(v(xmin+(m-1)*dx)+v(xmin+m*dx))
 
 end function vbar
 
-end program prim_reconstruction
+end program prim_reconstruction_eno
