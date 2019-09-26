@@ -5,26 +5,34 @@ program prim_reconstruction
 implicit none
 
 
-integer,parameter::nx=500 !number of cells
+!integer,parameter::nx=500 !number of cells
 integer,parameter::np=1000 !number of interpolation function samples
-integer,parameter::k=4 !stencil size (set k>=1)
+integer,parameter::k=6 !stencil size (set k>=1)
 integer,parameter::r=0 !fixed stencil left-shift(no of cells to left of central cell)
-integer::is
+integer::nx,is,counter
 real::xmin,xmax,dx,x
 
 real::L1err,L1ord
 
-real::cr(nx,k,2) !co-efficient array, cr(:,:,1)=value of co-efficient,cr(:,:,2)=value of r
+real,allocatable::cr(:,:,:) !co-efficient array, cr(:,:,1)=value of co-efficient,cr(:,:,2)=value of r
 
 integer::i,j
 !real::vbar(1:nx)
-real::v2(1:nx),Vdiff(1-k:nx+k,1-k:nx+k)
+real,allocatable::v2(:),Vdiff(:,:)
 
 xmin=0.
 xmax=1.
-dx=(xmax-xmin)/real(nx)
+!dx=(xmax-xmin)/real(nx)
+dx=0.25
 
 open(unit=10,file='output.txt')
+
+do while(counter<=6)
+
+nx=(xmax-xmin)/dx
+print*,'nx,dx=',nx,dx
+
+allocate(cr(nx,k,2),v2(1:nx),Vdiff(1-k:nx+k,1-k:nx+k))
 
 !Compute divided differences
 do j=1,k
@@ -58,15 +66,22 @@ end do
 !Compute Values of interpolated function and store in file
 L1err=0.
 do i=1,np
-  x=xmin+i*(xmax-xmin)/np
-  write(10,*) x,p(x),v(x) 
+  x=xmin+i*(xmax-xmin)/np 
   L1err=L1err+abs(p(x)-v(x))
 end do
+L1err=L1err/nx
 
+write(10,*) log(dx),log(L1err),5.*log(dx)+20.
 
-!L1 order of accuracy estimation
+!halve the cell interval
+dx=dx/2.
+counter=counter+1
 
+deallocate(cr,v2,Vdiff)
 
+print*,'counter=',counter
+
+end do 
 
 print*,'Done.'
 

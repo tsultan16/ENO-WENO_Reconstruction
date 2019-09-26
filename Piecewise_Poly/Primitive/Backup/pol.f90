@@ -4,21 +4,18 @@
 program prim_reconstruction
 implicit none
 
-
-integer,parameter::nx=500 !number of cells
+integer,parameter::nx=10 !number of cells
 integer,parameter::np=1000 !number of interpolation function samples
-integer,parameter::k=4 !stencil size (set k>=1)
+integer,parameter::k=3 !stencil size (set k>=1)
 integer,parameter::r=0 !fixed stencil left-shift(no of cells to left of central cell)
 integer::is
 real::xmin,xmax,dx,x
 
-real::L1err,L1ord
-
-real::cr(nx,k,2) !co-efficient array, cr(:,:,1)=value of co-efficient,cr(:,:,2)=value of r
+real::cr(nx+1,k,2) !co-efficient array, cr(:,:,1)=value of co-efficient,cr(:,:,2)=value of r
 
 integer::i,j
 !real::vbar(1:nx)
-real::v2(1:nx),Vdiff(1-k:nx+k,1-k:nx+k)
+real::Vdiff(1-k:nx+k,1-k:nx+k+1)
 
 xmin=0.
 xmax=1.
@@ -28,7 +25,7 @@ open(unit=10,file='output.txt')
 
 !Compute divided differences
 do j=1,k
-  do i=1-k,nx
+  do i=1-k,nx+1
    Vdiff(i,i+j)=Vdiv(i,i+j)  !Vdiff(i,i+j):=V[x_i-1/2,...,x_i+j-1/2]
   end do
 end do
@@ -42,10 +39,9 @@ end do
 
 
 !Compute Newton form polynomial coefficients
-do i=1,nx
+do i=1,nx+1
   do j=1,k
     cr(i,j,1)=Vdiff(i-r,i-r+j)! interpolation coefficients
-    !cr(i,j,1)=Vdiff(i-r-1,i-r+j-1)
     cr(i,j,2)=r
   end do 
 end do
@@ -56,16 +52,10 @@ end do
 !end do
 
 !Compute Values of interpolated function and store in file
-L1err=0.
 do i=1,np
   x=xmin+i*(xmax-xmin)/np
   write(10,*) x,p(x),v(x) 
-  L1err=L1err+abs(p(x)-v(x))
 end do
-
-
-!L1 order of accuracy estimation
-
 
 
 print*,'Done.'
@@ -74,13 +64,12 @@ close(unit=10)
 
 contains
 
-
 recursive function Vdiv(i,l) result(vx)
 integer,intent(in)::i,l
 real::vx
 
 if(l>i+1)then
-  vx=(Vdiv(i+1,l)-Vdiv(i,l-1))   !recursive function call
+  vx=(Vdiv(i+1,l)-Vdiv(i,l-1))/dx   !recursive function call
 else if(l==i+1)then
   vx=vbar(i)
 end if
@@ -92,30 +81,30 @@ function v(x) result(vx)
 real,intent(in)::x
 real::vx
 
-
+go to 99
 !step function
 if(x<0.5)then
   vx=1.
 else if(x>=0.5)then 
  vx=0.
 end if
-
-
-go to 99
-!step function
-if(x<0.35)then
-  vx=0.
-else if(x>=0.3 .and. x<0.65)then
-  vx=1.
-else if(x>=0.65)then
-  vx=0.
-end if
 99 continue
 
 go to 100
-!sinusoid
-vx=sin(20.*x)
+!step function
+if(x<-1./3.)then
+  vx=0.
+else if(x>=-1./3. .and. x<=1./3.)then
+  vx=1.
+else if(x>1./3.)then
+  vx=0.
+end if
 100 continue
+
+!go to 101
+!sinusoid
+vx=sin(10.*x)
+!101 continue
 
 end function v 
 
