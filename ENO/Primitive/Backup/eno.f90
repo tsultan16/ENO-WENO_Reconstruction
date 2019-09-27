@@ -1,20 +1,22 @@
-!Piecewise-polynomial Reconstruction from primitive variables implementation
-!(using Newton form for the interpolation polynomials)
+!Piecewise-polynomial ENO Reconstruction from primitive variables implementation
+!(following algorithm outlines in Chi Wang Shu's notes)
 
-program prim_reconstruction
+program prim_reconstruction_eno
 implicit none
 
-integer,parameter::nx=12 !number of cells
+
+integer,parameter::nx=20 !number of cells
 integer,parameter::np=1000 !number of interpolation function samples
-integer,parameter::k=5 !stencil size (set k>=1)
-integer,parameter::r=1 !fixed stencil left-shift(no of cells to left of central cell)
-integer::is
+integer,parameter::k=4 !stencil size (set k>=1)
+integer::r,is
 real::xmin,xmax,dx,x
 
-real::cr(nx,k,2) !co-efficient array, cr(:,:,1)=value of co-efficient,cr(:,:,2)=value of r
+!real::cr(nx,k,2) !co-efficient array, cr(:,:,1)=value of co-efficient,cr(:,:,2)=value of r
+integer::r(nx)  !eno stencil left-most cell index
 
 integer::i,j
-real::Vdiff(1-r:nx-r,1-r:nx-r+k)
+!real::vbar(1:nx)
+real::Vdiff(1-k:nx+k,1-k:nx+k)
 
 xmin=-1.
 xmax=1.
@@ -24,38 +26,53 @@ open(unit=10,file='output.txt')
 
 !Compute divided differences
 do j=1,k
-  do i=1-r,nx-r
+  do i=1-k,nx
    Vdiff(i,i+j)=Vdiv(i,i+j)  !Vdiff(i,i+j):=V[x_i-1/2,...,x_i+j-1/2]
   end do
 end do
 
-go to 98
+go to 97
 print*,'i  vbar	 V[x_i-1/2,x_i+1/2]   V[x_i-1/2,..,x_i-1/2+1] V[x_i-1/2,..,x_i-1/2+2]'
-do i=1-r,nx-r
+do i=1,nx
   print*,i,vbar(i),Vdiff(i,i+1),Vdiff(i,i+2),Vdiff(i,i+3)
 end do
-98 continue
+97 continue
 
-
-!Compute Newton form polynomial coefficients
+!***********************ENO Stencil Selection***************************
+!This step involves choosing the "smoothest" 
+!stencil from a selection of stencils. Degree of 
+!smoothness is measured by the magnitude of the divided differences.
+!For a k-point stencils, there will be (k-1) possible stencils to 
+!choose from for a given cell. Among these,the one that has the smallest  
+!kth order divided difference will be chosen by the ENO condition. In most
+!cases, it will turn out that the chosen stencil is also the one that
+!does not contain a discontinuous point (i.e. the ENO scheme is 
+!designed to pick the stencil that deliberately avoids discontinuities
+!to acheive a higher degree of accuracy). 
+!************************************************************************ 
 do i=1,nx
-  do j=1,k
-    cr(i,j,1)=Vdiff(i-r,i-r+j)! interpolation coefficients
-    cr(i,j,2)=r
+  !Start with two point stencil
+  j=1
+  is=i
+  cr(i,1,1)=Vdiff(is,is+j) !lowest-order stencil
+  cr(i,1,2)=i-is !r=0 for lowest-order stencil
+  do j=2,k
+    !apply ENO condition to the two (j+1)-point 
+    !stencils formed by adding a point on either 
+    !side of the preivious lower oder stencil
+    if(abs(Vdiff(is-1,is+j-1))<abs(Vdiff(is,is+j)))then
+      is=is-1
+    end if
+    cr(i,j,1)=Vdiff(is,is+j) !ENO interpolation coefficients
+    cr(i,j,2)=i-is
   end do 
 end do
-
-!print*,'i   cr(1)   cr(2)   cr(3)'
-!do i=1,nx
-! print*,i,cr(i,1),cr(i,2),cr(i,3)
-!end do
 
 !Compute Values of interpolated function and store in file
 do i=1,np
   x=xmin+(i-1)*(xmax-xmin)/np
   write(10,*) x,p(x),v(x) 
 end do
-
 
 print*,'Done.'
 
@@ -83,11 +100,12 @@ real::vx
 go to 99
 !step function
 if(x<0.)then
-  vx=1.
-else 
-  vx=0.
+ vx=1.
+else  
+ vx=0.
 end if
 99 continue
+
 
 !go to 100
 !step function
@@ -131,7 +149,6 @@ do j=1,k
   px=px+cr(i,j,1)*temp2
 end do
 
-
 end function p
 
 
@@ -152,5 +169,4 @@ end do
 end function vbar
 
 
-
-end program prim_reconstruction
+end program prim_reconstruction_eno

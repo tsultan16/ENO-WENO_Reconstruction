@@ -5,15 +5,13 @@ program pol_reconstruction_eno
 implicit none
 
 
-integer,parameter::nx=6 !number of cells
+integer,parameter::nx=5 !number of cells
 integer,parameter::np=1000 !number of interpolation function samples
 integer,parameter::k=2 !stencil size (set k>=1)
-integer::is
+integer::r,is
 real::xmin,xmax,dx,x
 
-!real::cr(nx,0:k,2) !co-efficient array, cr(:,:,1)=value of co-efficient,cr(:,:,2)=value of !r of r
-
-integer::r(nx)  !eno stencil left-most cell index
+real::cr(nx,0:k,2) !co-efficient array, cr(:,:,1)=value of co-efficient,cr(:,:,2)=value of r of r
 
 integer::i,j
 !real::vbar(1:nx)
@@ -25,7 +23,6 @@ dx=(xmax-xmin)/real(nx)
 
 open(unit=10,file='output.txt')
 
-print*,'dx=',dx
 
 !Compute divided differences
 do j=0,k
@@ -34,12 +31,12 @@ do j=0,k
   end do
 end do
 
-!go to 97
-print*,'i   	 V[x_i-1/2] V[x_i-1/2,x_i+1/2]   V[x_i-1/2,..,x_i-1/2+1]'
-do i=1-k,nx
-  print*,i,Vdiff(i,i),Vdiff(i,i+1),Vdiff(i,i+2)!,Vdiff(i,i+3)
+go to 97
+print*,'i  vbar	 V[x_i-1/2] V[x_i-1/2,x_i+1/2]   V[x_i-1/2,..,x_i-1/2+1]'
+do i=1,nx
+  print*,i,vbar(i),Vdiff(i,i),Vdiff(i,i+1),Vdiff(i,i+2)!,Vdiff(i,i+3)
 end do
-!97 continue
+97 continue
 
 !***********************ENO Stencil Selection***************************
 !This step involves choosing the "smoothest" 
@@ -54,23 +51,30 @@ end do
 !to acheive a higher degree of accuracy). 
 !************************************************************************ 
 do i=1,nx
-  !Start with one-point Stencil
   j=0
   is=i
+  cr(i,0,1)=Vdiff(is,is+j) !lowest-order stencil
+  cr(i,0,2)=i-is
   if(k>0)then
-    do j=1,k
-      !apply ENO condition to the two (j+1)-point 
-      !stencils formed by adding a point on either 
-      !side of the preivious lower oder stencil
-      if(abs(Vdiff(is-1,is+j-1))<abs(Vdiff(is,is+j)))then
-        is=is-1
-      end if
-    end do 
+   !Start with a two-point stencil
+   j=1
+   is=i 
+   cr(i,1,1)=Vdiff(is,is+j) !lowest-order stencil
+   cr(i,1,2)=i-is !r=0 for lowest-order stencil
+   if(k>1)then
+    do j=2,k
+    !apply ENO condition to the two (j+1)-point 
+    !stencils formed by adding a point on either 
+    !side of the preivious lower oder stencil
+     if(abs(Vdiff(is-1,is+j-1))<abs(Vdiff(is,is+j)))then
+       is=is-1
+     end if
+     cr(i,j,1)=Vdiff(is,is+j) !ENO interpolation coefficients
+     cr(i,j,2)=i-is
+    end do
+   end if 
   end if
-  r(i)=i-is
-  print*,'i,r=',i,r(i)
 end do
-
 
 !Compute Values of interpolated function and store in file
 do i=1,np
@@ -112,7 +116,7 @@ else if(x>=0.)then
 end if
 99 continue
 
-go to 100
+!go to 100
 !step function
 if(x<-1./3.)then
   vx=0.
@@ -121,12 +125,12 @@ else if(x>=-1./3. .and. x<=1./3.)then
 else if(x>1./3.)then
   vx=0.
 end if
-100 continue
+!100 continue
 
-!go to 101
+go to 101
 !sinusoid
-vx=-sin(3.14*x)
-!101 continue
+vx=sin(10.*x)
+101 continue
 
 end function v 
 
@@ -143,9 +147,9 @@ px=0.
 do j=0,k
   temp1=1.
   do l=0,j-1
-   temp1=temp1*(x-(xmin+(i-1-r(i)+l)*dx))
+   temp1=temp1*(x-(xmin+(i-cr(i,j,2)+l-1)*dx))
   end do
-  px=px+Vdiff(i-r(i),i-r(i)+j)*temp1
+  px=px+cr(i,j,1)*temp1
 end do
 
 

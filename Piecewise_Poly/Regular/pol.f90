@@ -8,7 +8,7 @@ implicit none
 integer,parameter::nx=25 !number of cells
 integer,parameter::np=1000 !number of interpolation function samples
 integer,parameter::k=3 !stencil size (set k>=0)
-integer,parameter::r=1 !fixed stencil left-shift(no of cells to left of central cell)
+integer,parameter::r=1!fixed stencil left-shift(no of cells to left of central cell)
 integer::is
 real::xmin,xmax,dx,x
 
@@ -60,7 +60,6 @@ close(unit=10)
 
 contains
 
-
 recursive function Vdiv(i,l) result(vx)
 integer,intent(in)::i,l
 real::vx
@@ -81,19 +80,19 @@ real::vx
 !go to 99
 !step function
 if(x<0.)then
-  vx=1.
-else if(x>=0.)then 
+ vx=1.
+else  
  vx=0.
 end if
 !99 continue
 
 go to 100
 !step function
-if(x<0.25)then
+if(x<-1./3.)then
   vx=0.
-else if(x>=0.25 .and. x<0.75)then
+else if(x>=-1./3. .and. x<=1./3.)then
   vx=1.
-else if(x>=0.75)then
+else if(x>1./3.)then
   vx=0.
 end if
 100 continue
